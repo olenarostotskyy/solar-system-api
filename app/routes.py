@@ -1,20 +1,34 @@
 from app import db
 from app.models.planets import Planet
 from flask import Blueprint, jsonify, make_response,abort, request
-    
-# planets = [
-#     Planet(1,"Mercury", {"mass":123, "distance_from_sun": 456, "num_moon": 1},"gray"),
-#     Planet(2,"Venus", {"mass":333, "distance_from_sun": 555, "num_moon": 3},"white"),
-#     Planet(3,"Earth", {"mass":444, "distance_from_sun": 567, "num_moon": 0},"blue"),
-# ]
 
 planets_bp = Blueprint("planets",__name__, url_prefix="/planets")
-@planets_bp.route("", methods = ["POST"])
-def create_one_planet():
+
+#Helper function to validate planet id and handling errors
+def validate_planet(planet_id):
+    # handling invalid planet_id input
+    try:
+        planet_id=int(planet_id)
+    except:
+        abort(make_response({"msg":f"Planet # {planet_id} is invalid id "},400))   
+    #read planet id 
+    planet=Planet.query.get(planet_id)
+    if planet is None:
+        abort(make_response({"msg":f"Planet # {planet_id} not found "},404)) 
+    
+    return planet
+
+#Helper function to check if all attributes are entered in request body
+def check_request_body():
     request_body = request.get_json()
     if "name" not in request_body or "description" not in request_body or "num_moon" not in request_body or "color" not in request_body:
-        return make_response(f"Invalid request", 400)
-    
+        abort(make_response(f"Invalid request ! name, description, color and num_moon are required", 400))
+    return request_body
+
+#Route functions:
+@planets_bp.route("", methods = ["POST"])
+def create_one_planet():
+    request_body = check_request_body()
     new_planet = Planet(
                 name = request_body["name"],
                 description = request_body["description"],
@@ -44,47 +58,39 @@ def get_all_planets():
         )
     return jsonify(planet_response)
 
-# @planets_bp.route("", methods =["GET"])
+# decorator that transforms the function follows into endpoint
+@planets_bp.route("/<planet_id>", methods=["GET"]) 
+def get_one_planet(planet_id):
+    planet=validate_planet(planet_id)
+    return {
+                "id" : planet.id,
+                "name": planet.name,
+                "description": planet.description,
+                "num_moon": planet.num_moon,
+                "color":planet.color
+            }, 200
 
-# #helper function to validate planet id and handling errors
-# @planets_bp.route("/<planet_id>", methods=["GET"]) # decorator that transform the function follows into andpoint
+#update planet
+@planets_bp.route("/<planet_id>", methods=["PUT"])
+def update_one_planet(planet_id):
+    planet=validate_planet(planet_id)
+    request_body=check_request_body()
 
-# def validate_planet(planet_id):
-#     # handling invalid planet_id input
-#     try:
-#         planet_id=int(planet_id)
-#     except:
-#         abort(make_response({"msg":f"{planet_id} is invalid id "},400 ))   
-#     #read planet id 
-#     for planet in planets:
-#         if planet.id==planet_id:
-#             return {
-#                 "id" : planet.id,
-#                 "name": planet.name,
-#                 "description": planet.description,
-#                 "color":planet.color
-#             }, 200
+    planet.name=request_body["name"]
+    planet.description=request_body["description"]
+    planet.color=request_body["color"]
+    planet.num_moon=request_body["num_moon"]
 
-#     # returning 400 for non-existing planet     
-#     abort(make_response({"msg":f"planet {planet_id} is not found"}, 404))   
-
-# #read all the planets
-# def get_all_planets():
-#     all_planet = []
-#     for planet in planets:
-#         all_planet.append({
-#             "id" : planet.id,
-#             "name": planet.name,
-#             "description": planet.description,
-#             "color":planet.color
-#         })
-#     return jsonify(all_planet) , 200
+    db.session.commit()
+    return (make_response(f"Planet # {planet_id}  successfully updated"), 200)
 
 
-# #read one planet
-# def read_one_planet(planet_id):
-#     planet=validate_planet(planet_id)
-#     return planet    
+@planets_bp.route("/<planet_id>", methods=["DELETE"])    
+def delete_one_planet(planet_id):
+    planet=validate_planet(planet_id)
 
+    db.session.delete(planet)
+    db.session.commit()
 
+    return (make_response(f"Planet # {planet_id}  successfully deleted"), 200)
 
