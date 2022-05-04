@@ -1,3 +1,4 @@
+from unicodedata import name
 from app import db
 from app.models.planets import Planet
 from flask import Blueprint, jsonify, make_response,abort, request
@@ -43,8 +44,29 @@ def create_one_planet():
 
 @planets_bp.route("",methods=["GET"])
 def get_all_planets():
+    # query parameters
+    params=request.args #this returns the value of the query param if it was set, or None if the query param is not found.
+    if "name" in params and "color" in params:
+        name_value=params["name"]
+        color_value=params["color"]
+        planets=Planet.query.filter_by(color=color_value,name=name_value)
+    
+    elif "description"  in params:
+        description_value=params["description"]
+        planets=Planet.query.filter_by(description=description_value)
+
+    elif "num_moon" in params:
+        moon_value=params["num_moon"]
+        planets=Planet.query.filter_by(num_moon=moon_value)
+
+    elif "color" in params:
+        color_value=params["color"] 
+        planets=Planet.query.filter_by(color=color_value)  
+
+    else:
+        planets=Planet.query.all() #If we didn't get a query param, get all the planets.
+
     # building planet response
-    planets=Planet.query.all()
     planet_response=[]
     for planet in planets:
         planet_response.append(
